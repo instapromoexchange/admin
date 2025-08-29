@@ -1,0 +1,918 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Admin Panel — Instapromo Exchange</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#f4f6fb; --card:#ffffff; --accent:#4a00e0; --accent2:#8e2de2; --muted:#6b7280;
+      --ok:#16a34a; --warn:#f59e0b; --bad:#ef4444; --info:#3b82f6;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;background:var(--bg);color:#111;}
+    header{background:linear-gradient(90deg,var(--accent),var(--accent2));color:#fff;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+    header h1{font-size:18px;margin:0}
+    header .sub{font-size:13px;opacity:.9}
+    .wrap{max-width:1200px;margin:22px auto;padding:0 16px;}
+    .grid{display:grid;gap:16px;grid-template-columns:repeat( auto-fit, minmax(240px, 1fr) );margin-bottom:18px}
+    .card{background:var(--card);border-radius:12px;padding:16px;box-shadow:0 6px 18px rgba(12,18,40,0.06);min-height:80px}
+    .card h3{margin:0 0 8px 0;font-size:14px;color:var(--muted)}
+    .stat{font-weight:700;font-size:20px}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+    .btn{display:inline-flex;align-items:center;gap:8px;border:0;padding:8px 12px;border-radius:8px;cursor:pointer;background:#111;color:#fff;font-weight:600}
+    .btn.secondary{background:#6b7280}
+    .btn.small{padding:6px 10px;font-size:14px}
+    .btn-ok{background:var(--ok)}
+    .btn-warn{background:var(--warn);color:#111}
+    .btn-bad{background:var(--bad)}
+    .btn-info{background:var(--info)}
+    .table-card{overflow:auto}
+    table{width:100%;border-collapse:collapse;font-size:14px}
+    th,td{padding:10px 12px;border-bottom:1px solid #eef2f7;text-align:left}
+    th{position:sticky;top:0;background:linear-gradient(90deg,var(--accent),var(--accent2));color:#fff}
+    td .muted{color:var(--muted);font-size:13px}
+    .tag{display:inline-block;padding:6px 8px;border-radius:8px;font-weight:600;font-size:13px}
+    .tag.pending{background:#fff3cd;color:#854d00}
+    .tag.approved{background:#ddf7e6;color:#0a6f2d}
+    .tag.rejected{background:#ffe6e6;color:#8b1e1e}
+    .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+    .search{padding:8px 12px;border-radius:10px;border:1px solid #e6e9ef;width:260px}
+    .small-input{padding:6px 10px;border-radius:8px;border:1px solid #e6e9ef}
+    .note{font-size:13px;color:var(--muted);margin-top:6px}
+    footer{max-width:1200px;margin:14px auto;padding:8px 16px;text-align:center;color:var(--muted);font-size:13px}
+    
+    /* Notification badge */
+    .notification-badge {
+      position: relative;
+      display: inline-block;
+    }
+    .notification-badge::after {
+      content: attr(data-count);
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      background: var(--bad);
+      color: white;
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    /* Toast notifications */
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1000;
+    }
+    .toast {
+      background: white;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: slideIn 0.3s ease-out;
+      max-width: 350px;
+    }
+    .toast.success { border-left: 4px solid var(--ok); }
+    .toast.error { border-left: 4px solid var(--bad); }
+    .toast.info { border-left: 4px solid var(--info); }
+    .toast.warning { border-left: 4px solid var(--warn); }
+    @keyframes slideIn {
+      from { transform: translateX(100px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    
+    /* Settings panel */
+    .settings-panel {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      z-index: 1000;
+      width: 90%;
+      max-width: 500px;
+    }
+    .settings-panel h3 {
+      margin-top: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .settings-panel .close {
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+    }
+    .settings-group {
+      margin-bottom: 15px;
+    }
+    .settings-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+    .settings-group input, .settings-group textarea {
+      width: 100%;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid #e6e9ef;
+    }
+    .overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 999;
+    }
+    
+    @media (max-width:720px){
+      header{padding:14px}
+      .controls{flex-direction:column;align-items:flex-start}
+      .search{width:100%}
+      .toast-container {
+        left: 10px;
+        right: 10px;
+        top: 10px;
+      }
+      .toast {
+        max-width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Admin Panel — Instapromo Exchange</h1>
+      <div class="sub">Open admin (no password). Use carefully.</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn" id="refreshBtn"><i class="fa fa-sync"></i> Refresh</button>
+      <button class="btn secondary" id="settingsBtn"><i class="fa fa-cog"></i> Settings</button>
+      <button class="btn secondary" id="addDummyBtn"><i class="fa fa-plus"></i> Add Dummy</button>
+      <button class="btn secondary" id="clearCacheBtn"><i class="fa fa-trash"></i> Clear Local</button>
+      <div class="notification-badge" id="notificationBadge" data-count="0" style="display:none">
+        <button class="btn btn-info" id="notificationsBtn"><i class="fa fa-bell"></i></button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- STATS -->
+    <div class="grid">
+      <div class="card">
+        <h3>Total users</h3>
+        <div class="stat" id="statUsers">0</div>
+        <div class="note">Number of documents in <code>users</code> collection</div>
+      </div>
+      <div class="card">
+        <h3>Pending submissions</h3>
+        <div class="stat" id="statSub">0</div>
+        <div class="note">Submissions (content) awaiting approval</div>
+      </div>
+      <div class="card">
+        <h3>Withdraw requests</h3>
+        <div class="stat" id="statWithdraw">0</div>
+        <div class="note">Requests by users to withdraw funds</div>
+      </div>
+      <div class="card">
+        <h3>Brand requests</h3>
+        <div class="stat" id="statBrand">0</div>
+        <div class="note">Campaign / brand promotion requests</div>
+      </div>
+    </div>
+
+    <!-- Controls & Search -->
+    <div class="card">
+      <div class="controls">
+        <input id="searchInput" class="search" placeholder="Search users / emails / brand names..." />
+        <select id="filterSelect" class="small-input">
+          <option value="all">All</option>
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+        </select>
+        <div style="margin-left:auto" class="muted">Live Firestore admin console (read/update).</div>
+      </div>
+    </div>
+
+    <!-- Users table -->
+    <section class="card table-card">
+      <h3>Users</h3>
+      <table id="usersTable">
+        <thead>
+          <tr><th>Name</th><th>Email</th><th>Instagram</th><th>Balance (₹)</th><th>Action</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- Submissions table -->
+    <section class="card table-card">
+      <h3>Submissions (content)</h3>
+      <table id="subsTable">
+        <thead>
+          <tr><th>User</th><th>Type</th><th>Amount</th><th>Link</th><th>Date</th><th>Status</th><th>Action</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- Withdrawals table -->
+    <section class="card table-card">
+      <h3>Withdraw Requests</h3>
+      <table id="withdrawTable">
+        <thead>
+          <tr><th>User</th><th>Amount</th><th>Method</th><th>Date</th><th>Status</th><th>Action</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- Brand requests table -->
+    <section class="card table-card">
+      <h3>Brand Requests</h3>
+      <table id="brandTable">
+        <thead>
+          <tr><th>Brand</th><th>Email</th><th>Budget</th><th>Type</th><th>Date</th><th>Status</th><th>Action</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </main>
+
+  <footer>
+    Tip: Use "Add Dummy" to create test docs. For production, remove or restrict this file.
+  </footer>
+
+  <!-- Settings Panel -->
+  <div class="overlay" id="settingsOverlay"></div>
+  <div class="settings-panel" id="settingsPanel">
+    <h3>
+      Notification Settings
+      <button class="close" id="closeSettings">&times;</button>
+    </h3>
+    
+    <div class="settings-group">
+      <label for="adminEmail">Notification Email</label>
+      <input type="email" id="adminEmail" value="rudrchauhan877@gmail.com" placeholder="Your email for notifications">
+    </div>
+    
+    <div class="settings-group">
+      <label for="emailSubject">Email Subject Template</label>
+      <input type="text" id="emailSubject" value="New Submission on Instapromo Exchange">
+    </div>
+    
+    <div class="settings-group">
+      <label for="emailTemplate">Email Body Template</label>
+      <textarea id="emailTemplate" rows="6">A new submission has been received on Instapromo Exchange.
+
+User: {userName}
+Type: {contentType}
+Amount: ₹{amount}
+Link: {contentLink}
+Date: {date}
+
+Please review it in the admin panel.</textarea>
+    </div>
+    
+    <div class="settings-group">
+      <label>
+        <input type="checkbox" id="emailNotifications" checked>
+        Enable Email Notifications
+      </label>
+    </div>
+    
+    <div class="settings-group">
+      <label>
+        <input type="checkbox" id="desktopNotifications">
+        Enable Browser Notifications
+      </label>
+    </div>
+    
+    <div class="settings-group">
+      <label>
+        <input type="checkbox" id="autoRefresh" checked>
+        Auto-refresh every 90 seconds
+      </label>
+    </div>
+    
+    <button class="btn" id="saveSettings"><i class="fa fa-save"></i> Save Settings</button>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Firebase + Admin logic -->
+  <script type="module">
+  // --- Firebase modular imports (browser) ---
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+  import {
+    getFirestore, collection, addDoc, getDocs, updateDoc, doc, query, where, orderBy, onSnapshot
+  } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+
+  // --- YOUR firebaseConfig (you provided earlier) ---
+  const firebaseConfig = {
+    apiKey: "AIzaSyBm4VTr__mag1trF4jPZCgqt7gWwBItD58",
+    authDomain: "exchange-a725e.firebaseapp.com",
+    projectId: "exchange-a725e",
+    storageBucket: "exchange-a725e.firebasestorage.app",
+    messagingSenderId: "47165517524",
+    appId: "1:47165517524:web:7712aae884de7a498a1541"
+  };
+
+  // init
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // DOM refs
+  const usersTBody = document.querySelector("#usersTable tbody");
+  const subsTBody = document.querySelector("#subsTable tbody");
+  const withdrawTBody = document.querySelector("#withdrawTable tbody");
+  const brandTBody = document.querySelector("#brandTable tbody");
+  const statUsers = document.getElementById("statUsers");
+  const statSub = document.getElementById("statSub");
+  const statWithdraw = document.getElementById("statWithdraw");
+  const statBrand = document.getElementById("statBrand");
+  const refreshBtn = document.getElementById("refreshBtn");
+  const addDummyBtn = document.getElementById("addDummyBtn");
+  const clearCacheBtn = document.getElementById("clearCacheBtn");
+  const searchInput = document.getElementById("searchInput");
+  const filterSelect = document.getElementById("filterSelect");
+  const settingsBtn = document.getElementById("settingsBtn");
+  const closeSettings = document.getElementById("closeSettings");
+  const settingsPanel = document.getElementById("settingsPanel");
+  const settingsOverlay = document.getElementById("settingsOverlay");
+  const saveSettings = document.getElementById("saveSettings");
+  const notificationBadge = document.getElementById("notificationBadge");
+  const notificationsBtn = document.getElementById("notificationsBtn");
+
+  // App state
+  let appState = {
+    lastSubmissionCheck: null,
+    notifications: [],
+    settings: {
+      adminEmail: "rudrchauhan877@gmail.com",
+      emailSubject: "New Submission on Instapromo Exchange",
+      emailTemplate: `A new submission has been received on Instapromo Exchange.\n\nUser: {userName}\nType: {contentType}\nAmount: ₹{amount}\nLink: {contentLink}\nDate: {date}\n\nPlease review it in the admin panel.`,
+      emailNotifications: true,
+      desktopNotifications: false,
+      autoRefresh: true
+    }
+  };
+
+  // Load settings from localStorage
+  function loadSettings() {
+    const saved = localStorage.getItem('adminSettings');
+    if (saved) {
+      try {
+        appState.settings = {...appState.settings, ...JSON.parse(saved)};
+        
+        // Update form fields
+        document.getElementById('adminEmail').value = appState.settings.adminEmail;
+        document.getElementById('emailSubject').value = appState.settings.emailSubject;
+        document.getElementById('emailTemplate').value = appState.settings.emailTemplate;
+        document.getElementById('emailNotifications').checked = appState.settings.emailNotifications;
+        document.getElementById('desktopNotifications').checked = appState.settings.desktopNotifications;
+        document.getElementById('autoRefresh').checked = appState.settings.autoRefresh;
+      } catch(e) {
+        console.error("Error loading settings:", e);
+      }
+    }
+  }
+
+  // Save settings to localStorage
+  function saveSettingsToStorage() {
+    localStorage.setItem('adminSettings', JSON.stringify(appState.settings));
+    showToast("Settings saved successfully", "success");
+  }
+
+  // Show toast notification
+  function showToast(message, type = "info") {
+    const toast = document.createElement("div");
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `
+      <i class="fa ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : type === 'warning' ? 'fa-exclamation-triangle' : 'fa-info-circle'}"></i>
+      <div>${message}</div>
+    `;
+    
+    const container = document.getElementById("toastContainer");
+    container.appendChild(toast);
+    
+    setTimeout(() => {
+      toast.style.opacity = "0";
+      setTimeout(() => container.removeChild(toast), 300);
+    }, 3000);
+  }
+
+  // Send email notification using EmailJS (you'll need to set up an account)
+  async function sendEmailNotification(submissionData) {
+    if (!appState.settings.emailNotifications) return;
+    
+    try {
+      // Replace placeholders in template
+      let emailBody = appState.settings.emailTemplate
+        .replace(/{userName}/g, submissionData.userName || "Unknown")
+        .replace(/{contentType}/g, submissionData.contentType || "Unknown")
+        .replace(/{amount}/g, submissionData.amount || "0")
+        .replace(/{contentLink}/g, submissionData.contentLink || "#")
+        .replace(/{date}/g, new Date(submissionData.date || new Date()).toLocaleString());
+      
+      // Using a simple mailto link as a fallback
+      const subject = encodeURIComponent(appState.settings.emailSubject);
+      const body = encodeURIComponent(emailBody);
+      
+      window.open(`mailto:${appState.settings.adminEmail}?subject=${subject}&body=${body}`);
+      
+      // In a real implementation, you would use a service like EmailJS, SendGrid, etc.
+      // This is just a client-side fallback
+      
+    } catch (error) {
+      console.error("Error sending email notification:", error);
+    }
+  }
+
+  // Show browser notification
+  function showBrowserNotification(title, body) {
+    if (!appState.settings.desktopNotifications) return;
+    
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification(title, { body });
+    } else if (Notification.permission !== "denied") {
+      Notification.requestPermission().then(permission => {
+        if (permission === "granted") {
+          new Notification(title, { body });
+        }
+      });
+    }
+  }
+
+  // Helper function to add a notification to the list
+  function addNotification(message, type = "info") {
+    appState.notifications.push({
+      id: Date.now(),
+      message,
+      type,
+      timestamp: new Date(),
+      read: false
+    });
+    
+    updateNotificationBadge();
+  }
+
+  // Update notification badge
+  function updateNotificationBadge() {
+    const unreadCount = appState.notifications.filter(n => !n.read).length;
+    if (unreadCount > 0) {
+      notificationBadge.style.display = "inline-block";
+      notificationBadge.setAttribute("data-count", unreadCount);
+    } else {
+      notificationBadge.style.display = "none";
+    }
+  }
+
+  // helper
+  function fmtDate(iso){
+    try{ return new Date(iso).toLocaleString(); }catch(e){ return iso; }
+  }
+  function tagForStatus(st){
+    if(!st) return `<span class="tag pending">PENDING</span>`;
+    if(st.toLowerCase()==='approved') return `<span class="tag approved">APPROVED</span>`;
+    if(st.toLowerCase()==='rejected') return `<span class="tag rejected">REJECTED</span>`;
+    return `<span class="tag pending">${st}</span>`;
+  }
+
+  // load all dashboard data
+  async function loadAll(){
+    // disable buttons briefly
+    refreshBtn.disabled = true;
+    refreshBtn.innerHTML = `<i class="fa fa-sync"></i> Loading...`;
+    try{
+      await Promise.all([loadUsers(), loadSubmissions(), loadWithdrawals(), loadBrandRequests()]);
+    }catch(e){
+      console.error(e);
+      showToast("Error loading data: " + (e.message || e), "error");
+    }finally{
+      refreshBtn.disabled = false;
+      refreshBtn.innerHTML = `<i class="fa fa-sync"></i> Refresh`;
+    }
+  }
+
+  // USERS
+  async function loadUsers(){
+    usersTBody.innerHTML = `<tr><td colspan="5" class="muted">Loading users...</td></tr>`;
+    const snap = await getDocs(collection(db, "users"));
+    statUsers.textContent = snap.size;
+    usersTBody.innerHTML = "";
+    snap.forEach(d=>{
+      const u = d.data();
+      const id = d.id;
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${escapeHtml(u.name||"-")}</td>
+        <td>${escapeHtml(u.email||"-")}</td>
+        <td class="muted">${escapeHtml(u.instagram||"-")}</td>
+        <td>₹<span id="bal_${id}">${u.balance||0}</span></td>
+        <td>
+          <div class="actions">
+            <button class="btn small" onclick="window.promptEditBalance('${id}', ${u.balance||0})"><i class="fa fa-edit"></i> Edit</button>
+            <button class="btn small btn-bad" onclick="window.adminDeleteUser('${id}')"><i class="fa fa-trash"></i> Delete</button>
+          </div>
+        </td>`;
+      usersTBody.appendChild(row);
+    });
+  }
+
+  // SUBMISSIONS
+  async function loadSubmissions(){
+    subsTBody.innerHTML = `<tr><td colspan="7" class="muted">Loading submissions...</td></tr>`;
+    // order by date desc if exists
+    const q = query(collection(db, "submissions"), orderBy("date", "desc"));
+    const snap = await getDocs(q);
+    statSub.textContent = snap.size;
+    subsTBody.innerHTML = "";
+    snap.forEach(d=>{
+      const s = d.data();
+      const id = d.id;
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${escapeHtml(s.userName||s.userEmail||"-")}</td>
+        <td class="muted">${escapeHtml(s.contentType||"-")}</td>
+        <td>₹${s.amount||0}</td>
+        <td><a href="${escapeAttr(s.contentLink||'#')}" target="_blank">View</a></td>
+        <td class="muted">${fmtDate(s.date)}</td>
+        <td>${tagForStatus(s.status)}</td>
+        <td>
+          ${s.status==='pending' ? `<div class="actions">
+            <button class="btn small btn-ok" onclick="window.approveSubmission('${id}','${escapeAttr(s.userId||"")}','${s.amount||0}')">Approve</button>
+            <button class="btn small btn-bad" onclick="window.rejectSubmission('${id}')">Reject</button>
+          </div>` : `<div class="muted">No actions</div>`}
+        </td>
+      `;
+      subsTBody.appendChild(row);
+    });
+  }
+
+  // WITHDRAWALS
+  async function loadWithdrawals(){
+    withdrawTBody.innerHTML = `<tr><td colspan="6" class="muted">Loading withdraws...</td></tr>`;
+    const q = query(collection(db, "withdrawals"), orderBy("date", "desc"));
+    const snap = await getDocs(q);
+    statWithdraw.textContent = snap.size;
+    withdrawTBody.innerHTML = "";
+    snap.forEach(d=>{
+      const w = d.data();
+      const id = d.id;
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${escapeHtml(w.userName||w.userEmail||"-")}</td>
+        <td>₹${w.amount||0}</td>
+        <td class="muted">${escapeHtml(w.method||"-")}${w.upiId? ' • '+escapeHtml(w.upiId):''}</td>
+        <td class="muted">${fmtDate(w.date)}</td>
+        <td>${tagForStatus(w.status)}</td>
+        <td>
+          ${w.status==='pending' ? `<div class="actions">
+            <button class="btn small btn-ok" onclick="window.approveWithdraw('${id}','${escapeAttr(w.userId||"")}','${w.amount||0}')">Approve</button>
+            <button class="btn small btn-bad" onclick="window.rejectWithdraw('${id}')">Reject</button>
+          </div>` : `<div class="muted">No actions</div>`}
+        </td>`;
+      withdrawTBody.appendChild(row);
+    });
+  }
+
+  // BRAND REQUESTS
+  async function loadBrandRequests(){
+    brandTBody.innerHTML = `<tr><td colspan="7" class="muted">Loading brand requests...</td></tr>`;
+    const q = query(collection(db, "brandRequests"), orderBy("date", "desc"));
+    const snap = await getDocs(q);
+    statBrand.textContent = snap.size;
+    brandTBody.innerHTML = "";
+    snap.forEach(d=>{
+      const b = d.data();
+      const id = d.id;
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${escapeHtml(b.brandName||"-")}</td>
+        <td class="muted">${escapeHtml(b.brandEmail||"-")}</td>
+        <td>₹${b.campaignBudget||0}</td>
+        <td class="muted">${escapeHtml(b.campaignType||"-")}</td>
+        <td class="muted">${fmtDate(b.date)}</td>
+        <td>${tagForStatus(b.status)}</td>
+        <td>
+          ${b.status==='pending' ? `<div class="actions">
+            <button class="btn small btn-ok" onclick="window.approveBrand('${id}')">Approve</button>
+            <button class="btn small btn-bad" onclick="window.rejectBrand('${id}')">Reject</button>
+          </div>` : `<div class="muted">No actions</div>`}
+        </td>`;
+      brandTBody.appendChild(row);
+    });
+  }
+
+  // ====== ACTIONS: approve / reject / update ======
+  async function approveSubmission(subId, userId, amount){
+    try{
+      await updateDoc(doc(db,"submissions",subId),{status:"approved"});
+      // update user's balance
+      if(userId){
+        await safeAddBalance(userId, Number(amount||0));
+      }
+      showToast("Submission approved.");
+      await loadAll();
+    }catch(e){
+      console.error(e); 
+      showToast("Error: "+(e.message||e), "error");
+    }
+  }
+
+  async function rejectSubmission(subId){
+    try{ 
+      await updateDoc(doc(db,"submissions",subId),{status:"rejected"}); 
+      showToast("Submission rejected"); 
+      await loadAll(); 
+    }
+    catch(e){ 
+      console.error(e); 
+      showToast("Error: "+(e.message||e), "error"); 
+    }
+  }
+
+  async function approveWithdraw(withdrawId, userId, amount){
+    try{
+      await updateDoc(doc(db,"withdrawals",withdrawId),{status:"completed"});
+      await safeAddBalance(userId, -Number(amount||0));
+      showToast("Withdraw approved and balance deducted.");
+      await loadAll();
+    }catch(e){ 
+      console.error(e); 
+      showToast("Error: "+(e.message||e), "error");
+    }
+  }
+
+  async function rejectWithdraw(withdrawId){
+    try{ 
+      await updateDoc(doc(db,"withdrawals",withdrawId),{status:"rejected"}); 
+      showToast("Withdraw rejected"); 
+      await loadAll(); 
+    }
+    catch(e){ 
+      console.error(e); 
+      showToast("Error: "+(e.message||e), "error");
+    }
+  }
+
+  async function approveBrand(brandId){
+    try{ 
+      await updateDoc(doc(db,"brandRequests",brandId),{status:"approved"}); 
+      showToast("Brand approved"); 
+      await loadAll(); 
+    }
+    catch(e){ 
+      console.error(e); 
+      showToast("Error: "+(e.message||e), "error");
+    }
+  }
+  
+  async function rejectBrand(brandId){
+    try{ 
+      await updateDoc(doc(db,"brandRequests",brandId),{status:"rejected"}); 
+      showToast("Brand rejected"); 
+      await loadAll(); 
+    }
+    catch(e){ 
+      console.error(e); 
+      showToast("Error: "+(e.message||e), "error");
+    }
+  }
+
+  // Safe add/subtract balance (reads and updates user doc by id)
+  async function safeAddBalance(userId, delta){
+    if(!userId) return;
+    try{
+      const uRef = doc(db,"users",userId);
+      const snap = await getDoc(uRef);
+      if(snap.exists()){
+        const cur = snap.data().balance || 0;
+        const next = Number(cur) + Number(delta || 0);
+        await updateDoc(uRef, { balance: next });
+      }
+    }catch(e){ console.error("safeAddBalance error", e); }
+  }
+
+  // Edit balance prompt
+  window.promptEditBalance = async function(userId, currentBalance){
+    const val = prompt("Set new balance (₹)", String(currentBalance||0));
+    if(val === null) return;
+    const n = Number(val);
+    if(isNaN(n)){ showToast("Invalid number", "error"); return; }
+    try{ 
+      await updateDoc(doc(db,"users",userId), { balance: n }); 
+      showToast("Balance updated"); 
+      await loadAll(); 
+    }
+    catch(e){ 
+      console.error(e); 
+      showToast("Error: "+(e.message||e), "error");
+    }
+  };
+
+  // Admin delete user (confirmation)
+  window.adminDeleteUser = async function(userId){
+    if(!confirm("Delete user doc from Firestore? This can't be undone from UI.")) return;
+    try{
+      await deleteDoc(doc(db,"users",userId));
+      showToast("User deleted.");
+      await loadAll();
+    }catch(e){ 
+      console.error(e); 
+      showToast("Error: "+(e.message||e), "error");
+    }
+  };
+
+  // Add dummy data for testing
+  async function addDummyData(){
+    try{
+      await addDoc(collection(db,"users"), { name:"Test User "+Date.now()%1000, email:"test"+Date.now()%1000+"@mail.com", instagram:"@testacc", balance:100 });
+      await addDoc(collection(db,"submissions"), { userId:"", userName:"Test User", contentType:"story", contentLink:"https://example.com", date:new Date().toISOString(), status:"pending", amount:500 });
+      await addDoc(collection(db,"withdrawals"), { userId:"", userName:"Test User", userEmail:"test@mail.com", amount:50, method:"UPI", upiId:"test@upi", date:new Date().toISOString(), status:"pending" });
+      await addDoc(collection(db,"brandRequests"), { brandName:"DemoBrand", brandEmail:"brand@mail.com", campaignType:"story", campaignBudget:1000, campaignDetails:"Demo", date:new Date().toISOString(), status:"pending" });
+      showToast("Dummy docs added (users, submissions, withdrawals, brandRequests).");
+      await loadAll();
+    }catch(e){ 
+      console.error(e); 
+      showToast("Error adding dummy: "+(e.message||e), "error");
+    }
+  }
+
+  // clear localStorage (UI helper)
+  function clearLocal(){
+    if(!confirm("Clear localStorage? This only clears your browser localStorage (not Firestore).")) return;
+    localStorage.clear(); 
+    showToast("localStorage cleared.");
+  }
+
+  // Setup real-time listener for new submissions
+  function setupSubmissionListener() {
+    const q = query(collection(db, "submissions"), orderBy("date", "desc"));
+    
+    onSnapshot(q, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === "added" && change.doc.data().status === "pending") {
+          // Check if this is a new submission (not just initial load)
+          if (appState.lastSubmissionCheck && 
+              change.doc.data().date > appState.lastSubmissionCheck) {
+            
+            const data = change.doc.data();
+            
+            // Add notification
+            addNotification(`New submission from ${data.userName || data.userEmail || "Unknown"}`, "info");
+            
+            // Send email notification
+            sendEmailNotification(data);
+            
+            // Show browser notification if enabled
+            showBrowserNotification(
+              "New Submission on Instapromo Exchange",
+              `A new ${data.contentType || "content"} submission has been received from ${data.userName || data.userEmail || "Unknown"}`
+            );
+            
+            showToast("New submission received!", "info");
+          }
+        }
+      });
+      
+      // Update last check time
+      appState.lastSubmissionCheck = new Date().toISOString();
+    });
+  }
+
+  // search/filter simple client-side (reload tables and filter rows)
+  searchInput.addEventListener("input", () => {
+    const q = String(searchInput.value||"").trim().toLowerCase();
+    if(!q){ // reload full lists
+      loadAll();
+      return;
+    }
+    // simple approach: fetch and filter on server (client-side filtering after fetch)
+    // We'll reload all then filter in place using text matching
+    (async()=>{
+      await loadAll();
+      // filter users
+      filterTableRows("#usersTable tbody tr", q);
+      filterTableRows("#subsTable tbody tr", q);
+      filterTableRows("#withdrawTable tbody tr", q);
+      filterTableRows("#brandTable tbody tr", q);
+    })();
+  });
+
+  function filterTableRows(selector, q){
+    document.querySelectorAll(selector).forEach(row=>{
+      const text = row.innerText.toLowerCase();
+      row.style.display = text.indexOf(q) === -1 ? "none" : "";
+    });
+  }
+
+  // filter by status
+  filterSelect.addEventListener("change", ()=>{
+    const v = filterSelect.value;
+    if(v==="all"){ loadAll(); return; }
+    // reload then hide rows not matching status tag text
+    (async()=>{
+      await loadAll();
+      document.querySelectorAll("tbody tr").forEach(row=>{
+        const txt = row.innerText.toLowerCase();
+        if(txt.indexOf(v) === -1) row.style.display = "none";
+      });
+    })();
+  });
+
+  // wire buttons
+  refreshBtn.addEventListener("click", loadAll);
+  addDummyBtn.addEventListener("click", addDummyData);
+  clearCacheBtn.addEventListener("click", clearLocal);
+
+  // Settings panel
+  settingsBtn.addEventListener("click", () => {
+    settingsPanel.style.display = "block";
+    settingsOverlay.style.display = "block";
+  });
+  
+  closeSettings.addEventListener("click", () => {
+    settingsPanel.style.display = "none";
+    settingsOverlay.style.display = "none";
+  });
+  
+  settingsOverlay.addEventListener("click", () => {
+    settingsPanel.style.display = "none";
+    settingsOverlay.style.display = "none";
+  });
+  
+  saveSettings.addEventListener("click", () => {
+    // Update settings from form
+    appState.settings.adminEmail = document.getElementById('adminEmail').value;
+    appState.settings.emailSubject = document.getElementById('emailSubject').value;
+    appState.settings.emailTemplate = document.getElementById('emailTemplate').value;
+    appState.settings.emailNotifications = document.getElementById('emailNotifications').checked;
+    appState.settings.desktopNotifications = document.getElementById('desktopNotifications').checked;
+    appState.settings.autoRefresh = document.getElementById('autoRefresh').checked;
+    
+    saveSettingsToStorage();
+    settingsPanel.style.display = "none";
+    settingsOverlay.style.display = "none";
+  });
+
+  // escape helpers
+  function escapeHtml(s){ if(!s && s!==0) return ""; return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); }
+  function escapeAttr(s){ if(!s && s!==0) return ""; return String(s).replaceAll("'","\\'").replaceAll('"','\\"'); }
+
+  // Expose functions to global scope for onclick handlers
+  window.approveSubmission = approveSubmission;
+  window.rejectSubmission = rejectSubmission;
+  window.approveWithdraw = approveWithdraw;
+  window.rejectWithdraw = rejectWithdraw;
+  window.approveBrand = approveBrand;
+  window.rejectBrand = rejectBrand;
+
+  // Initialize
+  loadSettings();
+  loadAll();
+  
+  // Setup real-time listener after initial load
+  setTimeout(() => {
+    setupSubmissionListener();
+  }, 2000);
+  
+  // Auto-refresh if enabled
+  if (appState.settings.autoRefresh) {
+    setInterval(() => {
+      if (appState.settings.autoRefresh) {
+        loadAll();
+      }
+    }, 90000); // 90 seconds
+  }
+
+  // Request notification permission on load
+  if ("Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission();
+  }
+  </script>
+</body>
+</html>
