@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Instapromo — Secure Admin Panel</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+<style>
+  :root{--bg:#0b1220;--panel:#0f172a;--card:#0b1220;--br:#1f2937;--fg:#e5e7eb;--mut:#94a3b8}
+  *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--fg)}
+  a{color:#93c5fd} header{position:sticky;top:0;z-index:20;background:#111827;border-bottom:1px solid rgba(255,255,255,.08)}
+  .wrap{max-width:1200px;margin:0 auto;padding:12px 16px}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .badge{font-size:.8rem;background:#f59e0b;color:#111827;padding:4px 10px;border-radius:999px;font-weight:800}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}
+  .tab{padding:8px 12px;background:#1f2937;border:1px solid #374151;border-bottom:0;border-radius:8px 8px 0 0;cursor:pointer}
+  .tab.active{background:var(--panel);color:#93c5fd}
+  .panel{display:none;background:var(--panel);border:1px solid #374151;border-radius:0 12px 12px 12px;padding:16px}
+  .panel.active{display:block}
+  table{width:100%;border-collapse:collapse;margin-top:8px}
+  th,td{padding:10px;border-bottom:1px solid var(--br);vertical-align:top}
+  thead th{background:#111827;color:#9ca3af;text-align:left}
+  tbody tr:hover{background:#0f1a33}
+  .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border:0;border-radius:10px;background:#2563eb;color:#fff;font-weight:700;cursor:pointer}
+  .btn.alt{background:#6b7280}.btn.dng{background:#b91c1c}.btn.oky{background:#059669}.btn.warn{background:#b45309}
+  input,select,textarea{background:var(--card);border:1px solid #374151;color:var(--fg);border-radius:8px;padding:8px 10px;width:100%}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+  .card{background:var(--card);border:1px solid #374151;border-radius:12px;padding:14px}
+  .muted{color:var(--mut)} .mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+  .status{margin:12px 0;padding:10px 12px;border-radius:10px;font-weight:700;display:none}
+  .status.show{display:block}.ok{background:rgba(16,185,129,.16);border:1px solid rgba(16,185,129,.35);color:#34d399}
+  .err{background:rgba(239,68,68,.16);border:1px solid rgba(239,68,68,.35);color:#fca5a5}
+  footer{padding:16px 0;color:#9ca3af;text-align:center}
+  #gate{max-width:460px;margin:40px auto}
+  #gate h2{margin:0 0 6px}
+  .logo{display:flex;align-items:center;gap:10px;font-weight:800}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="row">
+      <div class="logo"><i class="fa-solid fa-shield-halved"></i> Instapromo — Admin</div>
+      <div id="auth-info" class="muted"></div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- AUTH GATE -->
+  <section id="gate">
+    <div class="card">
+      <h2>Admin Login</h2>
+      <p class="muted">केवल authorized admin emails panel देख सकते हैं।</p>
+      <div class="grid">
+        <div><label class="muted">Email</label><input id="login-email" type="email" placeholder="you@example.com"></div>
+        <div><label class="muted">Password</label><input id="login-pass" type="password" placeholder="••••••••"></div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px">
+        <button id="btn-login" class="btn"><i class="fa-solid fa-right-to-bracket"></i>Login</button>
+        <button id="btn-logout" class="btn alt" style="display:none"><i class="fa-solid fa-right-from-bracket"></i>Logout</button>
+      </div>
+      <div id="gate-note" class="muted" style="margin-top:8px">Tip: Firebase Console → Authentication → Users में अपना admin user add कीजिए।</div>
+      <div id="auth-toast" class="status"></div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <h3>EmailJS Status</h3>
+      <div class="grid">
+        <div><label class="muted">Public Key</label><input id="ejs-pk" value="aEV1kpgGm7v8LRyKK"></div>
+        <div><label class="muted">Service ID</label><input id="ejs-svc" value="service_1n3l8r9"></div>
+        <div><label class="muted">Template ID</label><input id="ejs-tpl" value="template_pnipbsb"></div>
+        <div><label class="muted">Admin Email</label><input id="ejs-admin" value="rudrchauhan877@gmail.com"></div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px">
+        <button class="btn oky" id="btn-save-ejs"><i class="fa-solid fa-floppy-disk"></i>Save</button>
+        <span id="ejs-badge" class="badge">Configured</span>
+      </div>
+      <p class="muted" style="margin-top:6px">ये settings localStorage में भी save होंगी।</p>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <h3>Firebase Config (pre-filled)</h3>
+      <textarea id="fb-conf" rows="10" class="mono" spellcheck="false"></textarea>
+      <div style="margin-top:10px"><button class="btn" id="btn-reinit"><i class="fa-solid fa-play"></i>Re-Init Firebase</button></div>
+    </div>
+  </section>
+
+  <!-- MAIN APP -->
+  <section id="app" style="display:none">
+    <div class="tabs" id="tabs">
+      <div class="tab active" data-tab="tab-sub">Submissions</div>
+      <div class="tab" data-tab="tab-wd">Withdrawals</div>
+      <div class="tab" data-tab="tab-msg">Contact Messages</div>
+      <div class="tab" data-tab="tab-settings">Settings</div>
+    </div>
+
+    <div id="toast" class="status"></div>
+
+    <!-- Submissions -->
+    <section id="tab-sub" class="panel active">
+      <div class="grid">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <h3>Filters</h3>
+            <button class="btn alt" id="btn-refresh-sub"><i class="fa-solid fa-rotate"></i>Refresh</button>
+          </div>
+          <div class="grid">
+            <div><label class="muted">Status</label>
+              <select id="f-sub-status">
+                <option value="">All</option><option>pending</option><option>approved</option><option>rejected</option>
+              </select>
+            </div>
+            <div><label class="muted">Type</label>
+              <select id="f-sub-type">
+                <option value="">All</option><option>reels</option><option>video</option><option>story</option>
+              </select>
+            </div>
+            <div><label class="muted">Search (UID / Link)</label>
+              <input id="f-sub-search" placeholder="uid or part of link">
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Auto Email (EmailJS)</h3>
+          <p class="muted">नया submission आते ही <b id="admin-mail-lbl" class="mono"></b> पर मेल जाएगा (page खुला हो)।</p>
+          <div style="margin-top:8px"><span id="emailjs-status" class="badge">Configured</span></div>
+        </div>
+      </div>
+
+      <div style="overflow:auto;margin-top:10px">
+        <table>
+          <thead>
+            <tr><th>Date</th><th>UID</th><th>Type</th><th>Status</th><th>Earnings</th><th>Link</th><th style="min-width:260px">Actions</th></tr>
+          </thead>
+          <tbody id="sub-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Withdrawals -->
+    <section id="tab-wd" class="panel">
+      <div class="row">
+        <h3>Withdrawals</h3>
+        <button class="btn alt" id="btn-refresh-wd"><i class="fa-solid fa-rotate"></i>Refresh</button>
+      </div>
+      <div style="overflow:auto;margin-top:10px">
+        <table>
+          <thead>
+            <tr><th>Date</th><th>UID</th><th>Method</th><th>Details</th><th>Amount</th><th>Status</th><th style="min-width:220px">Actions</th></tr>
+          </thead>
+          <tbody id="wd-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Contact Messages -->
+    <section id="tab-msg" class="panel">
+      <div class="row">
+        <h3>Contact Messages</h3>
+        <button class="btn alt" id="btn-refresh-msg"><i class="fa-solid fa-rotate"></i>Refresh</button>
+      </div>
+      <div style="overflow:auto;margin-top:10px">
+        <table>
+          <thead>
+            <tr><th>Date</th><th>Group</th><th>Name</th><th>Email</th><th>Subject</th><th>Message</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="msg-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Settings -->
+    <section id="tab-settings" class="panel">
+      <div class="grid">
+        <div class="card">
+          <h3>Admin Emails (Allow-list)</h3>
+          <p class="muted">Comma-separated emails; केवल इन्हीं emails से login पर access।</p>
+          <input id="admin-allow" class="mono" value="rudrchauhan877@gmail.com">
+          <div style="margin-top:10px"><button id="btn-save-allow" class="btn oky"><i class="fa-solid fa-floppy-disk"></i>Save</button></div>
+        </div>
+        <div class="card">
+          <h3>Note</h3>
+          <ul>
+            <li>Panel access = Firebase Auth login + email allow-list</li>
+            <li>DB Rules को भी admin-only पढ़/लिखने दें जैसा आपने किया है</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">© <span id="yr"></span> Instapromo Admin (Secure)</div>
+</footer>
+
+<!-- EmailJS client -->
+<script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+
+<!-- Firebase SDKs (ESM) -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+  import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
+  import { getDatabase, ref, onValue, onChildAdded, update, remove } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js";
+
+  // ---------- CONFIG ----------
+  // (A) Firebase config (pre-filled with your project)
+  let firebaseConfig = JSON.parse(localStorage.getItem("fb_conf") || JSON.stringify({
+    apiKey: "AIzaSyBm4VTr__mag1trF4jPZCgqt7gWwBItD58",
+    authDomain: "exchange-a725e.firebaseapp.com",
+    databaseURL: "https://exchange-a725e-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "exchange-a725e",
+    storageBucket: "exchange-a725e.firebasestorage.app",
+    messagingSenderId: "47165517524",
+    appId: "1:47165517524:web:7712aae884de7a498a1541"
+  }));
+
+  // (B) Admin allow-list
+  let ADMIN_EMAILS = (localStorage.getItem("admin_allow") || "rudrchauhan877@gmail.com")
+                     .split(",").map(s=>s.trim().toLowerCase()).filter(Boolean);
+
+  // (C) EmailJS — embed your keys (also overridable via settings card)
+  let EMAILJS_PUBLIC_KEY  = localStorage.getItem("ejs_pk")   || "aEV1kpgGm7v8LRyKK";
+  let EMAILJS_SERVICE_ID  = localStorage.getItem("ejs_svc")  || "service_1n3l8r9";
+  let EMAILJS_TEMPLATE_ID = localStorage.getItem("ejs_tpl")  || "template_pnipbsb";
+  let ADMIN_EMAIL         = localStorage.getItem("ejs_admin")|| "rudrchauhan877@gmail.com";
+
+  // ---------- Helpers ----------
+  const $ = s => document.querySelector(s), $$ = s => document.querySelectorAll(s);
+  const fmt = ts => { const d=new Date(ts||Date.now()); return d.toISOString().replace('T',' ').slice(0,16); };
+  const htm = str => (str||"").toString().replace(/[&<>"']/g,s=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[s]));
+  const toastEl = $("#toast"), authToast = $("#auth-toast");
+  function toast(msg, ok=true){ toastEl.textContent=msg; toastEl.className="status show "+(ok?"ok":"err"); setTimeout(()=>toastEl.className="status",3000); }
+  function atoast(msg, ok=true){ authToast.textContent=msg; authToast.className="status show "+(ok?"ok":"err"); setTimeout(()=>authToast.className="status",3000); }
+  $("#yr").textContent = new Date().getFullYear();
+
+  // Hydrate config UI
+  $("#fb-conf").value = JSON.stringify(firebaseConfig,null,2);
+  $("#ejs-pk").value = EMAILJS_PUBLIC_KEY;
+  $("#ejs-svc").value = EMAILJS_SERVICE_ID;
+  $("#ejs-tpl").value = EMAILJS_TEMPLATE_ID;
+  $("#ejs-admin").value = ADMIN_EMAIL;
+  $("#admin-mail-lbl").textContent = ADMIN_EMAIL;
+  $("#admin-allow").value = ADMIN_EMAILS.join(", ");
+  function refreshEjsBadge(){
+    const ok = EMAILJS_PUBLIC_KEY && EMAILJS_SERVICE_ID && EMAILJS_TEMPLATE_ID;
+    const b=$("#ejs-badge"), b2=$("#emailjs-status");
+    [b,b2].forEach(el=>{ if(!el) return; el.textContent = ok ? "Configured" : "Not configured";
+      el.style.background = ok ? "#065f46" : "#374151"; el.style.color = ok ? "#a7f3d0" : "#e5e7eb"; });
+  }
+  refreshEjsBadge();
+
+  // Save settings
+  $("#btn-reinit").addEventListener("click", ()=>{
+    try{ firebaseConfig = JSON.parse($("#fb-conf").value); localStorage.setItem("fb_conf",JSON.stringify(firebaseConfig)); location.reload(); }
+    catch(e){ atoast("Invalid Firebase JSON", false); }
+  });
+  $("#btn-save-ejs").addEventListener("click", ()=>{
+    EMAILJS_PUBLIC_KEY  = $("#ejs-pk").value.trim();
+    EMAILJS_SERVICE_ID  = $("#ejs-svc").value.trim();
+    EMAILJS_TEMPLATE_ID = $("#ejs-tpl").value.trim();
+    ADMIN_EMAIL         = $("#ejs-admin").value.trim();
+    localStorage.setItem("ejs_pk",EMAILJS_PUBLIC_KEY);
+    localStorage.setItem("ejs_svc",EMAILJS_SERVICE_ID);
+    localStorage.setItem("ejs_tpl",EMAILJS_TEMPLATE_ID);
+    localStorage.setItem("ejs_admin",ADMIN_EMAIL);
+    $("#admin-mail-lbl").textContent = ADMIN_EMAIL;
+    try{ if(EMAILJS_PUBLIC_KEY) emailjs.init(EMAILJS_PUBLIC_KEY); }catch(_){}
+    refreshEjsBadge(); atoast("EmailJS settings saved");
+  });
+  $("#btn-save-allow").addEventListener("click", ()=>{
+    ADMIN_EMAILS = $("#admin-allow").value.split(",").map(s=>s.trim().toLowerCase()).filter(Boolean);
+    localStorage.setItem("admin_allow", ADMIN_EMAILS.join(","));
+    toast("Admin allow-list saved");
+  });
+
+  // Tabs
+  $("#tabs")?.addEventListener("click",(e)=>{
+    const t=e.target.closest(".tab"); if(!t) return;
+    $$(".tab").forEach(x=>x.classList.remove("active")); t.classList.add("active");
+    $$(".panel").forEach(p=>p.classList.remove("active")); $("#"+t.dataset.tab).classList.add("active");
+  });
+
+  // ---------- Firebase init ----------
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db   = getDatabase(app);
+
+  // EmailJS init now
+  try{ if(EMAILJS_PUBLIC_KEY) emailjs.init(EMAILJS_PUBLIC_KEY); }catch(_){}
+
+  // ---------- AUTH ----------
+  const gate = $("#gate"), appView = $("#app"), authInfo = $("#auth-info"), btnLogout = $("#btn-logout");
+  $("#btn-login").addEventListener("click", async ()=>{
+    const email=$("#login-email").value.trim(), pass=$("#login-pass").value;
+    if(!email || !pass) return atoast("Enter email & password", false);
+    try{
+      await signInWithEmailAndPassword(auth, email, pass);
+      atoast("Logged in"); 
+    }catch(e){ atoast(e.message||"Login failed", false); }
+  });
+  btnLogout.addEventListener("click", async ()=>{ try{ await signOut(auth); }catch{} });
+
+  function showApp(user){
+    gate.style.display="none"; appView.style.display="block";
+    authInfo.innerHTML = `<span class="muted">Signed in as</span> <b>${htm(user.email)}</b>`;
+    btnLogout.style.display = "inline-flex";
+    startDataWatchers(); // now start db listeners
+  }
+  function hideApp(){
+    appView.style.display="none"; gate.style.display="block";
+    authInfo.textContent=""; btnLogout.style.display="none";
+    $("#sub-body").innerHTML=""; $("#wd-body").innerHTML=""; $("#msg-body").innerHTML="";
+  }
+
+  onAuthStateChanged(auth, (user)=>{
+    if(!user){ hideApp(); return; }
+    const ok = ADMIN_EMAILS.includes((user.email||"").toLowerCase());
+    if(ok){ showApp(user); }
+    else { hideApp(); atoast("Not authorized for admin panel", false); signOut(auth); }
+  });
+
+  // ---------- DATA WATCHERS ----------
+  let submissions=[], withdrawals=[], messages=[];
+  const PAGE_LOADED_AT = Date.now();
+  const emailEnabled = ()=> (window.emailjs && EMAILJS_PUBLIC_KEY && EMAILJS_SERVICE_ID && EMAILJS_TEMPLATE_ID);
+
+  function sendNewSubmissionEmail({uid,val}){
+    if(!emailEnabled()) return;
+    const created = val.createdAt ? new Date(val.createdAt).toISOString() : new Date().toISOString();
+    emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      to_email: ADMIN_EMAIL, creator_uid: uid, type: val.type || "-", link: val.link || "-", created_at: created
+    }).then(()=>console.log("EmailJS: sent"), (e)=>console.warn("EmailJS fail",e));
+  }
+
+  function startDataWatchers(){
+    // Submissions
+    onValue(ref(db,"submissions"), (snap)=>{
+      const uids=[]; submissions=[];
+      snap.forEach(u=>{
+        uids.push(u.key);
+        u.forEach(ch=> submissions.push({uid:u.key,id:ch.key,val:ch.val()}));
+      });
+      renderSubmissions();
+      // Notify on new child under each uid
+      uids.forEach(uid=>{
+        onChildAdded(ref(db,`submissions/${uid}`),(ch)=>{
+          const val=ch.val()||{};
+          if((val.createdAt||0) >= PAGE_LOADED_AT) sendNewSubmissionEmail({uid,val});
+        });
+      });
+    });
+
+    // Withdrawals
+    onValue(ref(db,"withdrawals"), (snap)=>{
+      withdrawals=[];
+      snap.forEach(u=> u.forEach(ch=> withdrawals.push({uid:u.key,id:ch.key,val:ch.val()})));
+      renderWithdrawals();
+    });
+
+    // Contact messages
+    onValue(ref(db,"contactMessages"), (snap)=>{
+      messages=[];
+      snap.forEach(g=> g.forEach(ch=> messages.push({group:g.key,id:ch.key,val:ch.val()})));
+      renderMessages();
+    });
+  }
+
+  // ---------- RENDERERS ----------
+  function renderSubmissions(){
+    const body=$("#sub-body");
+    const fStatus=$("#f-sub-status").value, fType=$("#f-sub-type").value, q=$("#f-sub-search").value.toLowerCase().trim();
+    const rows = submissions.slice().sort((a,b)=>(b.val.createdAt||0)-(a.val.createdAt||0))
+      .filter(x=> (!fStatus||(x.val.status||"pending")==fStatus) && (!fType||(x.val.type||"")==fType)
+              && (!q || x.uid.toLowerCase().includes(q) || (x.val.link||"").toLowerCase().includes(q)));
+    body.innerHTML = rows.map(({uid,id,val})=>{
+      const clr = val.status==="approved"?"#34d399":val.status==="rejected"?"#f87171":"#fbbf24";
+      return `<tr>
+        <td>${fmt(val.createdAt)}</td>
+        <td class="mono">${htm(uid)}</td>
+        <td>${htm(val.type||"-")}</td>
+        <td style="color:${clr}">${htm(val.status||"pending")}</td>
+        <td><input type="number" step="1" min="0" value="${Number(val.earnings||0)}" data-uid="${uid}" data-id="${id}" class="earn-input" style="width:90px"></td>
+        <td style="word-break:break-all"><a href="${htm(val.link||'#')}" target="_blank" rel="noopener">open</a></td>
+        <td>
+          <button class="btn oky act-approve" data-uid="${uid}" data-id="${id}"><i class="fa-solid fa-check"></i>Approve</button>
+          <button class="btn warn act-pending" data-uid="${uid}" data-id="${id}"><i class="fa-solid fa-hourglass"></i>Pending</button>
+          <button class="btn dng act-reject"  data-uid="${uid}" data-id="${id}"><i class="fa-solid fa-xmark"></i>Reject</button>
+        </td>
+      </tr>`;
+    }).join("") || `<tr><td colspan="7" class="muted">No submissions</td></tr>`;
+  }
+
+  function renderWithdrawals(){
+    const body=$("#wd-body");
+    const rows = withdrawals.slice().sort((a,b)=>(b.val.createdAt||0)-(a.val.createdAt||0));
+    body.innerHTML = rows.map(({uid,id,val})=>{
+      const details = val.method==="upi"
+        ? `Name: ${htm(val.name||"-")}<br>UPI: ${htm(val.upiId||"-")}`
+        : `Name: ${htm(val.name||"-")}<br>Phone: ${htm(val.phone||"-")}<br>Acc: ${htm(val.account||"-")}<br>IFSC: ${htm(val.ifsc||"-")}`;
+      const clr = val.status==="paid"?"#34d399":val.status==="rejected"?"#f87171":"#fbbf24";
+      return `<tr>
+        <td>${fmt(val.createdAt)}</td>
+        <td class="mono">${htm(uid)}</td>
+        <td>${htm(val.method||"-")}</td>
+        <td>${details}</td>
+        <td>$${Number(val.amount||0)}</td>
+        <td style="color:${clr}">${htm(val.status||"requested")}</td>
+        <td>
+          <button class="btn oky act-wd-paid"    data-uid="${uid}" data-id="${id}"><i class="fa-solid fa-sack-dollar"></i>Mark Paid</button>
+          <button class="btn warn act-wd-pending" data-uid="${uid}" data-id="${id}"><i class="fa-solid fa-hourglass-half"></i>Pending</button>
+          <button class="btn dng act-wd-reject"  data-uid="${uid}" data-id="${id}"><i class="fa-solid fa-ban"></i>Reject</button>
+        </td>
+      </tr>`;
+    }).join("") || `<tr><td colspan="7" class="muted">No withdrawals</td></tr>`;
+  }
+
+  function renderMessages(){
+    const body=$("#msg-body");
+    const rows = messages.slice().sort((a,b)=>(b.val.createdAt||0)-(a.val.createdAt||0));
+    body.innerHTML = rows.map(({group,id,val})=>{
+      return `<tr>
+        <td>${fmt(val.createdAt)}</td>
+        <td class="mono">${htm(group)}</td>
+        <td>${htm(val.name||"-")}</td>
+        <td>${htm(val.email||"-")}</td>
+        <td>${htm(val.subject||"-")}</td>
+        <td style="max-width:420px;word-break:break-word">${htm(val.message||"-")}</td>
+        <td><button class="btn dng act-msg-del" data-group="${group}" data-id="${id}"><i class="fa-solid fa-trash"></i>Delete</button></td>
+      </tr>`;
+    }).join("") || `<tr><td colspan="7" class="muted">No messages</td></tr>`;
+  }
+
+  // Actions
+  document.addEventListener("click",(e)=>{
+    const a=e.target.closest("button"); if(!a) return;
+    const {uid,id}=a.dataset;
+    if(a.classList.contains("act-approve")) return setSubStatus(uid,id,"approved");
+    if(a.classList.contains("act-pending")) return setSubStatus(uid,id,"pending");
+    if(a.classList.contains("act-reject"))  return setSubStatus(uid,id,"rejected");
+    if(a.classList.contains("act-wd-paid"))    return setWdStatus(uid,id,"paid");
+    if(a.classList.contains("act-wd-pending")) return setWdStatus(uid,id,"requested");
+    if(a.classList.contains("act-wd-reject"))  return setWdStatus(uid,id,"rejected");
+    if(a.classList.contains("act-msg-del"))    return delMsg(a.dataset.group, a.dataset.id);
+  });
+  async function setSubStatus(uid,id,status){
+    try{
+      const inp=document.querySelector(`input.earn-input[data-uid="${uid}"][data-id="${id}"]`);
+      const earnings = inp? Number(inp.value||0):0;
+      await update(ref(db,`submissions/${uid}/${id}`),{status,earnings});
+      toast(`Submission ${id} → ${status.toUpperCase()} ($${earnings})`);
+    }catch(e){ toast(e.message||"Update failed", false); }
+  }
+  async function setWdStatus(uid,id,status){
+    try{ await update(ref(db,`withdrawals/${uid}/${id}`),{status}); toast(`Withdrawal ${id} → ${status.toUpperCase()}`); }
+    catch(e){ toast(e.message||"Update failed", false); }
+  }
+  async function delMsg(group,id){
+    if(!confirm("Delete this message?")) return;
+    try{ await remove(ref(db,`contactMessages/${group}/${id}`)); toast("Message deleted"); }
+    catch(e){ toast(e.message||"Delete failed", false); }
+  }
+
+  // Filters & refresh
+  $("#f-sub-status")?.addEventListener("change",renderSubmissions);
+  $("#f-sub-type")?.addEventListener("change",renderSubmissions);
+  $("#f-sub-search")?.addEventListener("input",renderSubmissions);
+  $("#btn-refresh-sub")?.addEventListener("click",()=>startDataWatchers());
+  $("#btn-refresh-wd")?.addEventListener("click",()=>startDataWatchers());
+  $("#btn-refresh-msg")?.addEventListener("click",()=>startDataWatchers());
+
+  // ---------- Start
+  const appInst = initializeApp(firebaseConfig); // (already initialized; harmless if same config)
+  try{ if(EMAILJS_PUBLIC_KEY) emailjs.init(EMAILJS_PUBLIC_KEY); }catch(_){}
+</script>
+</body>
+</html>
