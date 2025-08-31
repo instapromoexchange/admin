@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Instapromo — Secure Admin Panel</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+<style>
+  :root{--bg:#0b1220;--panel:#0f172a;--card:#0b1220;--br:#1f2937;--fg:#e5e7eb;--mut:#94a3b8}
+  *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--fg)}
+  header{background:#111827;border-bottom:1px solid #1f2937;padding:10px}.logo{font-weight:700;display:flex;gap:8px;align-items:center}
+  .wrap{max-width:1200px;margin:0 auto;padding:0 16px}
+  .tabs{display:flex;gap:6px;margin:14px 0}.tab{padding:8px 12px;cursor:pointer;background:#1f2937;border-radius:6px}
+  .tab.active{background:#2563eb;color:#fff}.panel{display:none}.panel.active{display:block}
+  table{width:100%;border-collapse:collapse;margin-top:8px}
+  th,td{padding:8px;border:1px solid #1f2937;text-align:left}.btn{padding:6px 10px;border:0;border-radius:6px;cursor:pointer;color:#fff}
+  .oky{background:#059669}.warn{background:#b45309}.dng{background:#b91c1c}
+  input{padding:6px;border:1px solid #374151;border-radius:6px;background:#0f172a;color:#fff}
+  .status{margin:8px 0;padding:8px;border-radius:6px;display:none}.status.show{display:block}
+  .ok{background:#065f46;color:#a7f3d0}.err{background:#7f1d1d;color:#fecaca}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="logo"><i class="fa-solid fa-shield-halved"></i> Instapromo Admin</div>
+    <div id="auth-info"></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- Login -->
+  <section id="gate">
+    <h2>Admin Login</h2>
+    <input id="login-email" type="email" placeholder="Email"><br><br>
+    <input id="login-pass" type="password" placeholder="Password"><br><br>
+    <button id="btn-login" class="btn oky">Login</button>
+    <button id="btn-logout" class="btn dng" style="display:none">Logout</button>
+    <div id="auth-toast" class="status"></div>
+  </section>
+
+  <!-- App -->
+  <section id="app" style="display:none">
+    <div class="tabs">
+      <div class="tab active" data-tab="sub">Submissions</div>
+      <div class="tab" data-tab="wd">Withdrawals</div>
+      <div class="tab" data-tab="msg">Messages</div>
+    </div>
+    <div id="toast" class="status"></div>
+
+    <!-- Submissions -->
+    <div id="sub" class="panel active">
+      <h3>Submissions</h3>
+      <table>
+        <thead><tr><th>Date</th><th>UID</th><th>Type</th><th>Status</th><th>Earnings</th><th>Link</th><th>Actions</th></tr></thead>
+        <tbody id="sub-body"></tbody>
+      </table>
+    </div>
+
+    <!-- Withdrawals -->
+    <div id="wd" class="panel">
+      <h3>Withdrawals</h3>
+      <table>
+        <thead><tr><th>Date</th><th>UID</th><th>Method</th><th>Details</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="wd-body"></tbody>
+      </table>
+    </div>
+
+    <!-- Messages -->
+    <div id="msg" class="panel">
+      <h3>Contact Messages</h3>
+      <table>
+        <thead><tr><th>Date</th><th>Name</th><th>Email</th><th>Subject</th><th>Message</th><th>Action</th></tr></thead>
+        <tbody id="msg-body"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<!-- EmailJS -->
+<script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
+import { getDatabase, ref, onValue, onChildAdded, update, remove } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBm4VTr__mag1trF4jPZCgqt7gWwBItD58",
+  authDomain: "exchange-a725e.firebaseapp.com",
+  databaseURL: "https://exchange-a725e-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "exchange-a725e",
+  storageBucket: "exchange-a725e.firebasestorage.app",
+  messagingSenderId: "47165517524",
+  appId: "1:47165517524:web:7712aae884de7a498a1541"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+// EmailJS init
+emailjs.init("aEV1kpgGm7v8LRyKK");
+
+// Helpers
+const $ = s=>document.querySelector(s);
+function toast(msg,ok=true){const el=$("#toast");el.textContent=msg;el.className="status show "+(ok?"ok":"err");setTimeout(()=>el.className="status",3000);}
+function atoast(msg,ok=true){const el=$("#auth-toast");el.textContent=msg;el.className="status show "+(ok?"ok":"err");setTimeout(()=>el.className="status",3000);}
+function fmt(ts){return new Date(ts||Date.now()).toLocaleString();}
+
+// Auth
+$("#btn-login").onclick=async()=>{
+  try{
+    await signInWithEmailAndPassword(auth,$("#login-email").value,$("#login-pass").value);
+    atoast("Login success");
+  }catch(e){atoast(e.message,false);}
+};
+$("#btn-logout").onclick=()=>signOut(auth);
+
+onAuthStateChanged(auth,u=>{
+  if(u && u.email==="rudrchauhan877@gmail.com"){
+    $("#gate").style.display="none";$("#app").style.display="block";$("#btn-logout").style.display="inline-block";
+    loadData();
+  }else{ $("#gate").style.display="block";$("#app").style.display="none"; }
+});
+
+// Data
+function loadData(){
+  // Submissions
+  onValue(ref(db,"submissions"),snap=>{
+    let rows=[];
+    snap.forEach(u=>u.forEach(ch=>{
+      let v=ch.val();rows.push({uid:u.key,id:ch.key,val:v});
+    }));
+    $("#sub-body").innerHTML=rows.map(r=>`
+      <tr>
+        <td>${fmt(r.val.createdAt)}</td>
+        <td>${r.uid}</td>
+        <td>${r.val.type||"-"}</td>
+        <td>${r.val.status||"pending"}</td>
+        <td><input type="number" class="earn" data-uid="${r.uid}" data-id="${r.id}" value="${r.val.earnings||0}"></td>
+        <td><a href="${r.val.link||"#"}" target="_blank">open</a></td>
+        <td>
+          <button class="btn oky" onclick="setSubStatus('${r.uid}','${r.id}','approved')">Approve</button>
+          <button class="btn warn" onclick="setSubStatus('${r.uid}','${r.id}','pending')">Pending</button>
+          <button class="btn dng" onclick="setSubStatus('${r.uid}','${r.id}','rejected')">Reject</button>
+        </td>
+      </tr>`).join("");
+  });
+
+  // Withdrawals
+  onValue(ref(db,"withdrawals"),snap=>{
+    let rows=[];
+    snap.forEach(u=>u.forEach(ch=>rows.push({uid:u.key,id:ch.key,val:ch.val()})));
+    $("#wd-body").innerHTML=rows.map(r=>`
+      <tr>
+        <td>${fmt(r.val.createdAt)}</td>
+        <td>${r.uid}</td>
+        <td>${r.val.method}</td>
+        <td>${r.val.name||""} ${r.val.upiId||r.val.account||""}</td>
+        <td>${r.val.amount||0}</td>
+        <td>${r.val.status||"requested"}</td>
+        <td>
+          <button class="btn oky" onclick="setWdStatus('${r.uid}','${r.id}','paid')">Paid</button>
+          <button class="btn warn" onclick="setWdStatus('${r.uid}','${r.id}','requested')">Pending</button>
+          <button class="btn dng" onclick="setWdStatus('${r.uid}','${r.id}','rejected')">Reject</button>
+        </td>
+      </tr>`).join("");
+  });
+
+  // Messages
+  onValue(ref(db,"contactMessages"),snap=>{
+    let rows=[];
+    snap.forEach(g=>g.forEach(ch=>rows.push({id:ch.key,val:ch.val()})));
+    $("#msg-body").innerHTML=rows.map(r=>`
+      <tr>
+        <td>${fmt(r.val.createdAt)}</td>
+        <td>${r.val.name}</td>
+        <td>${r.val.email}</td>
+        <td>${r.val.subject}</td>
+        <td>${r.val.message}</td>
+        <td><button class="btn dng" onclick="delMsg('${r.id}')">Delete</button></td>
+      </tr>`).join("");
+  });
+
+  // EmailJS notify new submissions
+  onChildAdded(ref(db,"submissions"),snap=>{
+    const val=snap.val(); 
+    if(val){
+      emailjs.send("service_1n3l8r9","template_pnipbsb",{to_email:"rudrchauhan877@gmail.com",creator_uid:snap.key,type:val.type,link:val.link,created_at:fmt(val.createdAt)});
+    }
+  });
+}
+
+// Update functions
+window.setSubStatus=async(uid,id,status)=>{
+  try{
+    const inp=document.querySelector(`.earn[data-uid="${uid}"][data-id="${id}"]`);
+    let earnings=parseFloat(inp.value);if(isNaN(earnings))earnings=0;
+    await update(ref(db,`submissions/${uid}/${id}`),{status,earnings,updatedAt:Date.now()});
+    toast(`Submission ${id} → ${status.toUpperCase()} ($${earnings})`);
+  }catch(e){toast(e.message,false);}
+};
+window.setWdStatus=async(uid,id,status)=>{
+  try{await update(ref(db,`withdrawals/${uid}/${id}`),{status});toast(`Withdrawal ${id} → ${status}`);}
+  catch(e){toast(e.message,false);}
+};
+window.delMsg=async(id)=>{
+  try{await remove(ref(db,`contactMessages/anonymous/${id}`));toast("Message deleted");}
+  catch(e){toast(e.message,false);}
+};
+
+// Tabs
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));document.querySelectorAll(".panel").forEach(x=>x.classList.remove("active"));t.classList.add("active");document.getElementById(t.dataset.tab).classList.add("active");});
+</script>
+</body>
+</html>
