@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Instapromo — Admin Panel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+  <style>
+    body{font-family:Inter,system-ui,Arial,sans-serif;margin:0;background:#f9fafb;color:#111}
+    header{background:#111827;color:#fff;padding:12px 20px;font-weight:700}
+    main{padding:20px}
+    h2{margin:16px 0;color:#2563eb}
+    table{width:100%;border-collapse:collapse;margin-top:10px;background:#fff}
+    th,td{padding:10px;border:1px solid #e5e7eb;text-align:left}
+    th{background:#f3f4f6}
+    .btn{padding:6px 10px;border:0;border-radius:6px;cursor:pointer;font-weight:600;color:#fff}
+    .oky{background:#10b981}.warn{background:#f59e0b}.dng{background:#ef4444}.paid{background:#3b82f6}
+    .tag{padding:4px 8px;border-radius:6px;font-weight:700;text-transform:uppercase}
+    .approved{background:#065f46;color:#a7f3d0}
+    .rejected{background:#7f1d1d;color:#fecaca}
+    .pending{background:#92400e;color:#fcd34d}
+    .completed{background:#1e40af;color:#bfdbfe}
+    input{padding:6px;border:1px solid #ccc;border-radius:6px}
+    #auth{margin:20px auto;max-width:320px;background:#fff;padding:20px;border-radius:10px;box-shadow:0 4px 10px rgba(0,0,0,.05)}
+    #auth input{width:100%;margin-bottom:10px}
+    #logout{float:right}
+  </style>
+</head>
+<body>
+<header>Instapromo Admin <button id="logout" class="btn dng" style="display:none">Logout</button></header>
+<main>
+  <!-- Login Form -->
+  <section id="auth">
+    <h2>Admin Login</h2>
+    <input id="login-email" type="email" placeholder="Email">
+    <input id="login-pass" type="password" placeholder="Password">
+    <button id="btn-login" class="btn oky" style="width:100%">Login</button>
+    <div id="auth-msg" style="margin-top:10px;color:#b91c1c;font-weight:600"></div>
+  </section>
+
+  <!-- App Panel -->
+  <section id="app" style="display:none">
+    <h2>Users</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>UID</th>
+          <th>Full Name</th>
+          <th>Social Profile</th>
+          <th>Followers</th>
+          <th>Phone</th>
+          <th>Email</th>
+          <th>Total Submissions</th>
+          <th>Approved</th>
+          <th>Pending</th>
+          <th>Rejected</th>
+          <th>Total Earnings</th>
+          <th>Available Balance</th>
+        </tr>
+      </thead>
+      <tbody id="user-body"></tbody>
+    </table>
+
+    <h2>Submissions</h2>
+    <table>
+      <thead><tr><th>Date</th><th>UID</th><th>Type</th><th>Status</th><th>Earnings</th><th>Link</th><th>Action</th></tr></thead>
+      <tbody id="sub-body"></tbody>
+    </table>
+
+    <h2>Withdrawals</h2>
+    <table>
+      <thead><tr><th>Date</th><th>UID</th><th>Method</th><th>Details</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead>
+      <tbody id="wd-body"></tbody>
+    </table>
+
+    <h2>Messages</h2>
+    <table>
+      <thead><tr><th>Date</th><th>UID/Group</th><th>Name</th><th>Email</th><th>Subject</th><th>Message</th><th>Action</th></tr></thead>
+      <tbody id="msg-body"></tbody>
+    </table>
+  </section>
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
+import { getDatabase, ref, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js";
+
+// Firebase Config
+const firebaseConfig = {
+  apiKey: "AIzaSyBm4VTr__mag1trF4jPZCgqt7gWwBItD58",
+  authDomain: "exchange-a725e.firebaseapp.com",
+  databaseURL: "https://exchange-a725e-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "exchange-a725e",
+  storageBucket: "exchange-a725e.appspot.com",
+  messagingSenderId: "47165517524",
+  appId: "1:47165517524:web:7712aae884de7a498a1541"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+// UI elements
+const authBox=document.getElementById("auth"), appBox=document.getElementById("app");
+const subBody=document.getElementById("sub-body"), wdBody=document.getElementById("wd-body"), msgBody=document.getElementById("msg-body");
+const userBody=document.getElementById("user-body");
+
+// Login
+document.getElementById("btn-login").onclick=async()=>{
+  const email=document.getElementById("login-email").value, pass=document.getElementById("login-pass").value;
+  try{ await signInWithEmailAndPassword(auth,email,pass);}catch(e){document.getElementById("auth-msg").innerText=e.message;}
+};
+document.getElementById("logout").onclick=()=>signOut(auth);
+
+// Auth guard
+onAuthStateChanged(auth,(u)=>{
+  if(u && u.email==="rudrchauhan877@gmail.com"){
+    authBox.style.display="none"; appBox.style.display="block"; document.getElementById("logout").style.display="inline-block";
+    loadData();
+  }else if(u){document.getElementById("auth-msg").innerText="No admin access";}
+  else{authBox.style.display="block"; appBox.style.display="none"; document.getElementById("logout").style.display="none";}
+});
+
+// Load data
+function loadData(){
+  let userStats = {}; // per-user stats
+
+  // Submissions
+  onValue(ref(db,"submissions"),snap=>{
+    subBody.innerHTML="";
+    userStats = {};
+    snap.forEach(u=>{
+      const uid=u.key;
+      userStats[uid] = userStats[uid] || {approved:0,pending:0,rejected:0,totalSubmissions:0,earnings:0,withdrawals:0};
+      u.forEach(ch=>{
+        const v=ch.val(); const id=ch.key;
+        const st=v.status||"pending"; const earn=v.earnings||0;
+        userStats[uid].totalSubmissions++;
+        userStats[uid][st] = (userStats[uid][st]||0)+1;
+        if(st==="approved" || st==="completed"){ userStats[uid].earnings += earn; }
+        subBody.innerHTML+=`
+          <tr>
+            <td>${new Date(v.createdAt).toLocaleString()}</td>
+            <td>${uid}</td>
+            <td>${v.type||"-"}</td>
+            <td><span class="tag ${st}">${st}</span></td>
+            <td><input type="number" id="earn-${uid}-${id}" value="${earn}" style="width:80px"></td>
+            <td>${v.link?`<a href="${v.link}" target="_blank">open</a>`:"-"}</td>
+            <td>
+              ${st==="pending"?`
+                <button class="btn oky" onclick="setSubStatus('${uid}','${id}','approved')">Approve</button>
+                <button class="btn dng" onclick="setSubStatus('${uid}','${id}','rejected')">Reject</button>`:`<span class="tag ${st}">${st.toUpperCase()}</span>`}
+            </td>
+          </tr>`;
+      });
+    });
+    renderUsers(userStats);
+  });
+
+  // Withdrawals
+  onValue(ref(db,"withdrawals"),snap=>{
+    wdBody.innerHTML="";
+    snap.forEach(u=>{
+      const uid=u.key;
+      userStats[uid] = userStats[uid] || {approved:0,pending:0,rejected:0,totalSubmissions:0,earnings:0,withdrawals:0};
+      u.forEach(ch=>{
+        const v=ch.val(); const id=ch.key;
+        const st=v.status||"requested";
+        if(st==="approved" || st==="completed"){ userStats[uid].withdrawals += (v.amount||0); }
+        wdBody.innerHTML+=`
+          <tr>
+            <td>${new Date(v.createdAt).toLocaleString()}</td>
+            <td>${uid}</td>
+            <td>${v.method}</td>
+            <td>${v.method==="upi"?v.upiId:(v.account||"-")}</td>
+            <td>₹${v.amount}</td>
+            <td><span class="tag ${st}">${st}</span></td>
+            <td>
+              ${st==="requested"?`
+                <button class="btn oky" onclick="setWdStatus('${uid}','${id}','approved')">Approve</button>
+                <button class="btn dng" onclick="setWdStatus('${uid}','${id}','rejected')">Reject</button>`:""}
+              ${st==="approved"?`<button class="btn paid" onclick="setWdStatus('${uid}','${id}','completed')">Mark Paid</button>`:""}
+            </td>
+          </tr>`;
+      });
+    });
+    renderUsers(userStats);
+  });
+
+  // Messages
+  onValue(ref(db,"contactMessages"),snap=>{
+    msgBody.innerHTML="";
+    snap.forEach(group=>group.forEach(ch=>{
+      const v=ch.val(); const uid=group.key,id=ch.key;
+      msgBody.innerHTML+=`
+        <tr>
+          <td>${new Date(v.createdAt).toLocaleString()}</td>
+          <td>${uid}</td>
+          <td>${v.name||"-"}</td>
+          <td>${v.email||"-"}</td>
+          <td>${v.subject||"-"}</td>
+          <td>${v.message||"-"}</td>
+          <td><button class="btn dng" onclick="delMsg('${uid}','${id}')">Delete</button></td>
+        </tr>`;
+    }));
+  });
+
+  // Users renderer
+  function renderUsers(stats){
+    onValue(ref(db,"users"),snap=>{
+      userBody.innerHTML="";
+      snap.forEach(ch=>{
+        const uid=ch.key, v=ch.val();
+        const s=stats[uid]||{approved:0,pending:0,rejected:0,totalSubmissions:0,earnings:0,withdrawals:0};
+        const balance = s.earnings - s.withdrawals;
+        userBody.innerHTML+=`
+          <tr>
+            <td>${uid}</td>
+            <td>${v.fullName||"-"}</td>
+            <td>${v.socialProfile?`<a href="${v.socialProfile}" target="_blank">Profile</a>`:"-"}</td>
+            <td>${v.followers||0}</td>
+            <td>${v.phone||"-"}</td>
+            <td>${v.email||"-"}</td>
+            <td>${s.totalSubmissions}</td>
+            <td>${s.approved}</td>
+            <td>${s.pending}</td>
+            <td>${s.rejected}</td>
+            <td>₹${s.earnings}</td>
+            <td>₹${balance}</td>
+          </tr>`;
+      });
+    });
+  }
+}
+
+// Expose actions
+window.setSubStatus=async(uid,id,status)=>{
+  const inp=document.getElementById(`earn-${uid}-${id}`); 
+  const earnings=inp?parseInt(inp.value||0,10):0;
+  await update(ref(db,`submissions/${uid}/${id}`),{status,earnings,updatedAt:Date.now()});
+};
+window.setWdStatus=async(uid,id,status)=>{
+  await update(ref(db,`withdrawals/${uid}/${id}`),{status,updatedAt:Date.now()});
+};
+window.delMsg=async(uid,id)=>{await remove(ref(db,`contactMessages/${uid}/${id}`));};
+</script>
+</body>
+</html>
